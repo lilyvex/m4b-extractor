@@ -40,12 +40,11 @@ fn check_mp3_metadata(mp3_path: &str, expected_title: &str, expected_track: u32)
 
 #[test]
 fn test_m4b_extractor_metadata() -> Result<()> {
-    // let binary_path = if cfg!(debug_assertions) {
-    //     "./target/debug/m4b-extractor"
-    // } else {
-    //     "./target/release/m4b-extractor"
-    // };
-    let binary_path = "./target/release/m4b-extractor";
+    let binary_path = if cfg!(debug_assertions) {
+        "./target/debug/m4b-extractor"
+    } else {
+        "./target/release/m4b-extractor"
+    };
 
     let input_file = "tests/data/sample.m4b";
     let output_dir = "tests/output";

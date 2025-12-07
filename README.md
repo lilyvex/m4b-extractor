@@ -63,6 +63,9 @@ m4b-extractor --help
 Build and test the package:
 
 ```bash
+# debug build
+cargo build
+# release build
 cargo build --release
 cargo test
 ```
