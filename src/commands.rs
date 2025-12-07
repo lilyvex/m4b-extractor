@@ -1,4 +1,4 @@
-use crate::utils::sanitize_filename;
+use crate::utils::{needs_sanitize, sanitize_filename};
 use anyhow::{bail, Context, Result};
 use rayon::prelude::*;
 use serde_json::Value;
@@ -21,12 +21,44 @@ pub fn split_chapters(args: &Args, output_dir: &str, json: &Value) -> Result<()>
             .context("Chapter missing end_time")?;
         let title = chapter["tags"]["title"].as_str().unwrap_or("Chapter");
 
+        // let sanitized = sanitize(&title);
+
+        // eprintln!(
+        //     "⚠️ Filename contains invalid characters. Sanitizing automatically:\n\
+        //  → Before: {}\n\
+        //  → After : {}",
+        //     filename, sanitized
+        // );
+
+        // filename = sanitized;
+
         // Sanitize the title for filename safety
-        let safe_title = if args.sanitize {
-            sanitize_filename(title)
+        // let safe_title = if args.sanitize {
+        //     sanitize_filename(title)
+        // } else {
+        //     title.to_string()
+        // };
+        let mut safe_title = title.to_string();
+
+        if args.sanitize {
+            // User explicitly asked for sanitize → always sanitize
+            safe_title = sanitize_filename(&safe_title);
         } else {
-            title.to_string()
-        };
+            if needs_sanitize(title) {
+                let sanitized = sanitize_filename(&safe_title);
+
+                if sanitized != safe_title {
+                    eprintln!(
+                        "⚠️ Invalid characters detected in chapter title. \
+                    Sanitization applied automatically.\n\
+                    → Before: {}\n→ After : {}\n\
+                    (Use --sanitize to always sanitize filenames.)",
+                        safe_title, sanitized
+                    );
+                    safe_title = sanitized;
+                }
+            }
+        }
 
         let filename = format!("{}_{}.m4b", idx + 1, safe_title);
         let output_path = Path::new(output_dir).join(&filename);

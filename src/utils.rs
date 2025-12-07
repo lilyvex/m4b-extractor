@@ -16,3 +16,10 @@ pub fn sanitize_filename(name: &str) -> String {
     let re_multi = Regex::new(r#"_+"#).unwrap();
     re_multi.replace_all(&safe, "_").to_string()
 }
+
+pub fn needs_sanitize(name: &str) -> bool {
+    // Add anything your filesystem can't handle
+    const INVALID: &[char] = &['/', '\\', ':', '*', '?', '"', '<', '>', '|'];
+
+    name.chars().any(|c| INVALID.contains(&c))
+}
