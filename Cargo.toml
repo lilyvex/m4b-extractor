@@ -1,6 +1,6 @@
 [package]
 name = "m4b-extractor"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2021"
 license = "MIT"
 description = "CLI tool to extract chapters, metadata and cover for M4B Audiobook."

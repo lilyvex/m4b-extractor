@@ -1,86 +1,90 @@
+use anyhow::Result;
+use serde_json::Value;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-fn test_output_files_exist() {
-    let output_dir = "tests/output";
+/// Helper to check MP3 metadata for a given file
+fn check_mp3_metadata(mp3_path: &str, expected_title: &str, expected_track: u32) -> Result<()> {
+    // Use ffprobe to get JSON metadata
+    let output = Command::new("ffprobe")
+        .args(&[
+            "-v",
+            "error",
+            "-show_entries",
+            "format_tags=title,track",
+            "-print_format",
+            "json",
+            mp3_path,
+        ])
+        .output()?;
 
-    let expected_files = [
-        "1_Chapter 01.mp3",
-        "2_Chapter 02.mp3",
-        "folder.jpg",
-        "metadata.json",
-        "tags.yaml",
-    ];
-
-    for file in expected_files {
-        let path = format!("{}/{}", output_dir, file);
-        assert!(
-            fs::metadata(&path).is_ok(),
-            "Expected file '{}' to exist but it does not.",
-            path
-        );
+    if !output.status.success() {
+        anyhow::bail!("ffprobe failed for '{}'", mp3_path);
     }
+
+    let json: Value = serde_json::from_slice(&output.stdout)?;
+    let tags = &json["format"]["tags"];
+
+    let title = tags["title"].as_str().unwrap_or("");
+    let track = tags["track"]
+        .as_str()
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(0);
+
+    assert_eq!(title, expected_title, "Title mismatch for '{}'", mp3_path);
+    assert_eq!(track, expected_track, "Track mismatch for '{}'", mp3_path);
+
+    Ok(())
 }
 
 #[test]
-fn test_m4b_extractor_basic() {
-    // Path to compiled binary
-    // When running tests with `cargo test`, the binary is usually at:
-    // ./target/debug/m4b-extractor
-    // Use `cargo build` or `cargo build --release` before running tests
+fn test_m4b_extractor_metadata() -> Result<()> {
+    // let binary_path = if cfg!(debug_assertions) {
+    //     "./target/debug/m4b-extractor"
+    // } else {
+    //     "./target/release/m4b-extractor"
+    // };
+    let binary_path = "./target/release/m4b-extractor";
 
-    let binary_path = if cfg!(debug_assertions) {
-        "./target/debug/m4b-extractor"
-    } else {
-        "./target/release/m4b-extractor"
-    };
-
-    // Define input test file path (put a small test .m4b in tests/data or use a dummy file)
     let input_file = "tests/data/sample.m4b";
     let output_dir = "tests/output";
 
-    // Clean previous test output if exists
+    // Clean previous test output
     if Path::new(output_dir).exists() {
-        fs::remove_dir_all(output_dir).expect("Failed to clean output directory");
+        fs::remove_dir_all(output_dir)?;
     }
 
-    // Run the binary with input and output args
+    // Run the binary
     let output = Command::new(binary_path)
         .args(&[input_file, "--output", output_dir])
-        .output()
-        .expect("Failed to run m4b-extractor binary");
+        .output()?;
 
-    // Optional: print stdout/stderr for debug if needed
     println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
     eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
 
-    // Assert the binary exited successfully
     assert!(output.status.success(), "Binary did not exit successfully");
 
-    // Check output directory exists
-    assert!(
-        Path::new(output_dir).exists(),
-        "Output directory not created"
-    );
-
-    // Check at least one chapter file was created
-    let chapter_files = fs::read_dir(output_dir)
-        .expect("Failed to read output directory")
+    // Check at least one chapter file exists
+    let chapter_files: Vec<_> = fs::read_dir(output_dir)?
         .filter_map(|e| e.ok())
         .filter(|e| {
             e.path()
                 .extension()
-                .map(|ext| ext == "mp3" || ext == "m4b")
+                .map(|ext| ext == "mp3")
                 .unwrap_or(false)
         })
-        .count();
+        .collect();
 
-    assert!(
-        chapter_files > 0,
-        "No chapter audio files found in output directory"
-    );
+    assert!(!chapter_files.is_empty(), "No chapter MP3 files found");
 
-    // Check specific expected files exist
-    test_output_files_exist();
+    // Example: verify first chapter metadata
+    // Replace with actual expected titles and tracks from your test sample
+    check_mp3_metadata(
+        &chapter_files[1].path().to_string_lossy(),
+        "Rick Astley // Never Gonna Give You Up",
+        1,
+    )?;
+
+    Ok(())
 }

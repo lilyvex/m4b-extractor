@@ -19,51 +19,39 @@ pub fn split_chapters(args: &Args, output_dir: &str, json: &Value) -> Result<()>
         let end = chapter["end_time"]
             .as_str()
             .context("Chapter missing end_time")?;
-        let title = chapter["tags"]["title"].as_str().unwrap_or("Chapter");
 
-        // let sanitized = sanitize(&title);
+        // Original title (for metadata)
+        let original_title = chapter["tags"]["title"]
+            .as_str()
+            .unwrap_or("Chapter")
+            .to_string();
 
-        // eprintln!(
-        //     "⚠️ Filename contains invalid characters. Sanitizing automatically:\n\
-        //  → Before: {}\n\
-        //  → After : {}",
-        //     filename, sanitized
-        // );
-
-        // filename = sanitized;
-
-        // Sanitize the title for filename safety
-        // let safe_title = if args.sanitize {
-        //     sanitize_filename(title)
-        // } else {
-        //     title.to_string()
-        // };
-        let mut safe_title = title.to_string();
+        // Sanitized filename
+        let mut safe_title = original_title.clone();
 
         if args.sanitize {
-            // User explicitly asked for sanitize → always sanitize
             safe_title = sanitize_filename(&safe_title);
-        } else {
-            if needs_sanitize(title) {
-                let sanitized = sanitize_filename(&safe_title);
+        } else if needs_sanitize(&safe_title) {
+            let sanitized = sanitize_filename(&safe_title);
 
-                if sanitized != safe_title {
-                    eprintln!(
-                        "⚠️ Invalid characters detected in chapter title. \
-                    Sanitization applied automatically.\n\
-                    → Before: {}\n→ After : {}\n\
-                    (Use --sanitize to always sanitize filenames.)",
-                        safe_title, sanitized
-                    );
-                    safe_title = sanitized;
-                }
+            if sanitized != safe_title {
+                eprintln!(
+                    "⚠️ Invalid characters detected in chapter title. \
+Sanitization applied automatically.\n\
+→ Before: {}\n→ After : {}\n\
+(Use --sanitize to always sanitize filenames.)",
+                    safe_title, sanitized
+                );
+                safe_title = sanitized;
             }
         }
 
         let filename = format!("{}_{}.m4b", idx + 1, safe_title);
         let output_path = Path::new(output_dir).join(&filename);
 
-        println!("🎵 Chapter {}: {}", idx + 1, safe_title);
+        println!("🎵 Chapter {}: {}", idx + 1, original_title);
+
+        let track_num = (idx + 1).to_string();
 
         let status = Command::new("ffmpeg")
             .args([
@@ -78,6 +66,11 @@ pub fn split_chapters(args: &Args, output_dir: &str, json: &Value) -> Result<()>
                 end,
                 "-c",
                 "copy",
+                // Metadata
+                "-metadata",
+                &format!("title={}", original_title),
+                "-metadata",
+                &format!("track={}", track_num),
                 output_path.to_str().unwrap(),
             ])
             .status()
@@ -113,6 +106,7 @@ pub fn convert_to_mp3(output_dir: &str, quality: u8) -> Result<()> {
             m4bfile.display(),
             mp3file.display()
         );
+
         let status = Command::new("ffmpeg")
             .args([
                 "-loglevel",
@@ -120,6 +114,12 @@ pub fn convert_to_mp3(output_dir: &str, quality: u8) -> Result<()> {
                 "-y",
                 "-i",
                 m4bfile.to_str().unwrap(),
+                // ❌ remove cover image
+                "-map",
+                "0:a",
+                "-map",
+                "-0:v",
+                // Encoding
                 "-acodec",
                 "libmp3lame",
                 "-qscale:a",
@@ -130,7 +130,6 @@ pub fn convert_to_mp3(output_dir: &str, quality: u8) -> Result<()> {
 
         match status {
             Ok(s) if s.success() => {
-                // Remove original m4b file if conversion succeeded
                 let _ = fs::remove_file(m4bfile);
             }
             Ok(_) => eprintln!("Conversion failed for '{}'", m4bfile.display()),
