@@ -65,7 +65,7 @@ fn test_m4b_extractor_metadata() -> Result<()> {
     assert!(output.status.success(), "Binary did not exit successfully");
 
     // Check at least one chapter file exists
-    let chapter_files: Vec<_> = fs::read_dir(output_dir)?
+    let mut chapter_files: Vec<_> = fs::read_dir(output_dir)?
         .filter_map(|e| e.ok())
         .filter(|e| {
             e.path()
@@ -75,12 +75,19 @@ fn test_m4b_extractor_metadata() -> Result<()> {
         })
         .collect();
 
+    // Sort by filename
+    chapter_files.sort_by_key(|e| e.path().file_name().map(|f| f.to_os_string()));
+
     assert!(!chapter_files.is_empty(), "No chapter MP3 files found");
+
+    // Now chapter_files[0] is the first chapter (1_*)
+    let first_chapter = &chapter_files[0].path();
+    println!("First chapter file: {}", first_chapter.display());
 
     // Example: verify first chapter metadata
     // Replace with actual expected titles and tracks from your test sample
     check_mp3_metadata(
-        &chapter_files[1].path().to_string_lossy(),
+        &chapter_files[0].path().to_string_lossy(),
         "Rick Astley // Never Gonna Give You Up",
         1,
     )?;
