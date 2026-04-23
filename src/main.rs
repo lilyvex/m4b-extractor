@@ -8,6 +8,8 @@ use args::Args;
 use clap::Parser;
 use std::path::Path;
 
+use crate::args::ConversionFormat;
+
 fn main() -> Result<()> {
     let args = Args::parse();
 
@@ -23,7 +25,8 @@ fn main() -> Result<()> {
 
     println!("Input: {}", args.input);
     println!("Output directory: {}", output_dir);
-    println!("Keep original m4b files (no convert): {}", args.no_convert);
+    println!("Do no convert m4b files: {}", args.no_convert);
+    println!("Conversion format: {}", args.conversion_format);
     println!("Quality (only use for conversion): {}", args.quality);
     println!("Sanitize filenames: {}", args.sanitize);
     println!("");
@@ -55,9 +58,16 @@ fn main() -> Result<()> {
     metadata::extract_cover(&args.input, &output_dir, &metadata_json)?;
 
     if !args.no_convert {
-        commands::convert_to_mp3(&output_dir, args.quality)?;
+        match args.conversion_format {
+            ConversionFormat::Mp3 => {
+                commands::convert_to_mp3(&output_dir, args.quality)?;
+            },
+            ConversionFormat::Flac => {
+                commands::convert_to_flac(&output_dir)?;
+            }
+        }
     } else {
-        println!("⚠️ MP3 conversion disabled, keeping .m4b files.");
+        println!("⚠️ Conversion disabled, skipping...");
     }
 
     println!("\n✅ Done! All files saved to: {}", &output_dir);

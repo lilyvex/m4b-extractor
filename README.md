@@ -11,6 +11,8 @@ Available on [crates.io](https://crates.io/crates/m4b-extractor).
 
 - [Rust](https://www.rust-lang.org/)
 - [FFmpeg](https://ffmpeg.org/) installed and available in your `PATH`
+- [jq](https://jqlang.org/) installed and available in your `PATH`
+- [yq](https://github.com/mikefarah/yq) installed and available in your `PATH`
 
 ## Installation
 
@@ -30,7 +32,7 @@ m4b-extractor /path/to/input.m4b
 
 You will get a directory named `<input_file>_chapters` containing:
 
-- Each chapter as a separate `.mp3` file.
+- Each chapter as a separate `.mp3` file, or `flac` file if `-f flac` is specified.
 - A `metadata.json` file with the metadata of the book.
 - A `tags.yaml` file with the tags of the book.
 - A `folder.jpg` file with the cover of the book.
@@ -53,6 +55,7 @@ m4b-extractor --help
 
 - `-o`, `--output <OUTPUT>`: Specify the output directory for extracted chapters (default: `<input_file>_chapters`).
 - `-k`, `--keep`: Keep the original `.m4b` files without converting them to `.mp3`.
+- `-k`, `--conversion-format`: Which format to convert the m4b file(s) to, FLAC or MP3.
 - `-q`, `--quality <QUALITY>`: Specify the conversion quality (1=best, 9=worst) for `.mp3` files (default: `2`).
 - `-s`, `--sanitize`: Sanitize filenames by replacing invalid characters with underscores (default: `false`).
 - `-h`, `--help`: Print help information.

@@ -3,6 +3,7 @@ use anyhow::{bail, Context, Result};
 use rayon::prelude::*;
 use serde_json::Value;
 use std::fs;
+use std::path::PathBuf;
 use std::{path::Path, process::Command};
 
 use crate::args::Args;
@@ -83,9 +84,7 @@ Sanitization applied automatically.\n\
     Ok(())
 }
 
-pub fn convert_to_mp3(output_dir: &str, quality: u8) -> Result<()> {
-    println!("\n🔄 Converting all chapter .m4b files to .mp3 in parallel (fast encoding) and deleting originals...");
-
+fn collect_m4b_files(output_dir: &str) -> Result<Vec<PathBuf>> {
     let entries: Vec<_> = fs::read_dir(output_dir)?
         .filter_map(|e| {
             e.ok().and_then(|entry| {
@@ -99,6 +98,55 @@ pub fn convert_to_mp3(output_dir: &str, quality: u8) -> Result<()> {
         })
         .collect();
 
+    Ok(entries)
+}
+
+pub fn convert_to_flac(output_dir: &str) -> Result<()> {
+    println!("\n🔄 Converting all chapter .m4b files to .flac in parallel...");
+
+    let entries: Vec<_> = collect_m4b_files(output_dir)?;
+    entries.par_iter().for_each(|m4bfile| {
+        let flacfile = m4bfile.with_extension("flac");
+        println!(
+            "Converting '{}' → '{}'",
+            m4bfile.display(),
+            flacfile.display()
+        );
+
+        let status = Command::new("ffmpeg")
+            .args([
+                "-loglevel",
+                "error",
+                "-y",
+                "-i",
+                m4bfile.to_str().unwrap(),
+                // ❌ remove cover image
+                "-map",
+                "0:a",
+                "-map",
+                "-0:v",
+                // Lossless FLAC encoding
+                "-acodec",
+                "flac",
+                flacfile.to_str().unwrap(),
+            ])
+            .status();
+
+        match status {
+            Ok(s) if s.success() => (),
+            Ok(_) => eprintln!("Conversion failed for '{}'", m4bfile.display()),
+            Err(e) => eprintln!("Failed to run ffmpeg for '{}': {}", m4bfile.display(), e),
+        }
+    });
+
+    println!("✅ Conversion and cleanup complete.");
+    Ok(())
+}
+
+pub fn convert_to_mp3(output_dir: &str, quality: u8) -> Result<()> {
+    println!("\n🔄 Converting all chapter .m4b files to .mp3 in parallel (fast encoding)...");
+
+    let entries: Vec<_> = collect_m4b_files(output_dir)?;
     entries.par_iter().for_each(|m4bfile| {
         let mp3file = m4bfile.with_extension("mp3");
         println!(
@@ -129,9 +177,7 @@ pub fn convert_to_mp3(output_dir: &str, quality: u8) -> Result<()> {
             .status();
 
         match status {
-            Ok(s) if s.success() => {
-                let _ = fs::remove_file(m4bfile);
-            }
+            Ok(s) if s.success() => (),
             Ok(_) => eprintln!("Conversion failed for '{}'", m4bfile.display()),
             Err(e) => eprintln!("Failed to run ffmpeg for '{}': {}", m4bfile.display(), e),
         }
