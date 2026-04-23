@@ -133,7 +133,9 @@ pub fn convert_to_flac(output_dir: &str) -> Result<()> {
             .status();
 
         match status {
-            Ok(s) if s.success() => (),
+            Ok(s) if s.success() => {
+                let _ = fs::remove_file(m4bfile);
+            },
             Ok(_) => eprintln!("Conversion failed for '{}'", m4bfile.display()),
             Err(e) => eprintln!("Failed to run ffmpeg for '{}': {}", m4bfile.display(), e),
         }
@@ -177,7 +179,9 @@ pub fn convert_to_mp3(output_dir: &str, quality: u8) -> Result<()> {
             .status();
 
         match status {
-            Ok(s) if s.success() => (),
+            Ok(s) if s.success() => {
+                let _ = fs::remove_file(m4bfile);
+            },
             Ok(_) => eprintln!("Conversion failed for '{}'", m4bfile.display()),
             Err(e) => eprintln!("Failed to run ffmpeg for '{}': {}", m4bfile.display(), e),
         }
