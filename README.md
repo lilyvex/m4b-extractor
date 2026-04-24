@@ -16,11 +16,7 @@ Available on [crates.io](https://crates.io/crates/m4b-extractor).
 
 ## Installation
 
-You can install `m4b-extractor` with [Cargo](https://doc.rust-lang.org/cargo/).
-
-```bash
-cargo install m4b-extractor
-```
+This fork of `m4b-extractor` is not currently packaged anywhere. To install it you will have to compile it and optionally add it to your operating system's `PATH` variable. Automated builds will be available in the future.
 
 ## Usage
 
