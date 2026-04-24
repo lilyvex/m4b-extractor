@@ -1,0 +1,124 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  build-and-release:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: linux-amd64
+          - os: windows-latest
+            artifact: windows-amd64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Install ffmpeg, jq, and yq on Linux
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg jq yq
+
+      - name: Install ffmpeg, jq, and yq on Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          winget install --id Gyan.FFmpeg -e --silent --accept-source-agreements
+          winget install --id jqlang.jq -e --silent --accept-source-agreements
+          winget install --id MikeFarah.yq -e --silent --accept-source-agreements
+
+      - name: Add tools to PATH on Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          $WingetPackagesPath = "$env:USERPROFILE\AppData\Local\Microsoft\WinGet\Packages"
+          
+          # FFmpeg
+          $FFmpegPath = Get-ChildItem -Path $WingetPackagesPath -Filter "Gyan.FFmpeg*" -Directory -ErrorAction SilentlyContinue | Select-Object -First 1 | ForEach-Object { Join-Path $_.FullName "ffmpeg-*-full_build\bin" -Resolve -ErrorAction SilentlyContinue }
+          if ($FFmpegPath) { echo $FFmpegPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append }
+          
+          # jq
+          $JqPath = Get-ChildItem -Path $WingetPackagesPath -Filter "jqlang.jq*" -Directory -ErrorAction SilentlyContinue | Select-Object -First 1 | ForEach-Object { $_.FullName }
+          if ($JqPath) { echo $JqPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append }
+          
+          # yq
+          $YqPath = Get-ChildItem -Path $WingetPackagesPath -Filter "MikeFarah.yq*" -Directory -ErrorAction SilentlyContinue | Select-Object -First 1 | ForEach-Object { $_.FullName }
+          if ($YqPath) { echo $YqPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append }
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Run tests
+        run: cargo test --verbose
+
+      - name: Rename built executable on Linux
+        if: matrix.os == 'ubuntu-latest'
+        run: cp target/release/m4b-extractor target/release/m4b-extractor-${{ matrix.artifact }}
+
+      - name: Rename built executable on Windows
+        if: matrix.os == 'windows-latest'
+        run: copy target\release\m4b-extractor.exe target\release\m4b-extractor-${{ matrix.artifact }}.exe
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: m4b-extractor-${{ matrix.os }}
+          path: target/release/m4b-extractor-${{ matrix.artifact }}*
+          archive: false
+
+  create-release:
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Generate changelog from commit history
+        id: changelog
+        run: |
+          # Get commits since the last tag
+          if git describe --tags --abbrev=0 > /dev/null 2>&1; then
+            LAST_TAG=$(git describe --tags --abbrev=0)
+            CHANGELOG=$(git log $LAST_TAG..HEAD --pretty=format:"- %h: %s")
+          else
+            CHANGELOG=$(git log --pretty=format:"- %h: %s" | head -20)
+          fi
+          
+          # Store changelog in environment variable
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+          body: |
+            ## Changes in this release
+            ${{ steps.changelog.outputs.changelog }}
+          files: artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+permissions:
+  contents: write

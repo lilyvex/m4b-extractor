@@ -5,18 +5,16 @@
 
 [Rust](https://www.rust-lang.org/) CLI tool to extract chapters, metadata and cover for M4B Audiobook. Based on idea of [Hasan Arous](https://unix.stackexchange.com/questions/499179/using-ffmpeg-to-split-an-audible-audio-book-into-chapters).
 
-Available on [crates.io](https://crates.io/crates/m4b-extractor).
-
 ## Requirements
 
-- [Rust](https://www.rust-lang.org/)
+- [Rust](https://www.rust-lang.org/) (Only for compilation)
 - [FFmpeg](https://ffmpeg.org/) installed and available in your `PATH`
 - [jq](https://jqlang.org/) installed and available in your `PATH`
 - [yq](https://github.com/mikefarah/yq) installed and available in your `PATH`
 
 ## Installation
 
-This fork of `m4b-extractor` is not currently packaged anywhere. To install it you will have to compile it and optionally add it to your operating system's `PATH` variable. Automated builds will be available in the future.
+This fork of `m4b-extractor` is not currently packaged anywhere, but pre-built binaries are available in the releases tab under the assets section of each release. Ensure that everything specified in the requirements section above is installed, with the expection of Rust as it is not a runtime dependency.
 
 ## Usage
 
@@ -51,13 +49,13 @@ m4b-extractor --help
 
 - `-o`, `--output <OUTPUT>`: Specify the output directory for extracted chapters (default: `<input_file>_chapters`).
 - `-k`, `--keep`: Keep the original `.m4b` files without converting them to `.mp3`.
-- `-k`, `--conversion-format`: Which format to convert the m4b file(s) to, FLAC or MP3.
+- `-f`, `--conversion-format`: Which format to convert the m4b file(s) to, FLAC or MP3.
 - `-q`, `--quality <QUALITY>`: Specify the conversion quality (1=best, 9=worst) for `.mp3` files (default: `2`).
 - `-s`, `--sanitize`: Sanitize filenames by replacing invalid characters with underscores (default: `false`).
 - `-h`, `--help`: Print help information.
 - `-V`, `--version`: Print the version of the tool.
 
-## Test and publish
+## Building and testing
 
 Build and test the package:
 
@@ -67,18 +65,6 @@ cargo build
 # release build
 cargo build --release
 cargo test
-```
-
-Test publishing:
-
-```bash
-cargo publish --dry-run
-```
-
-Publish the package to [crates.io](https://crates.io):
-
-```bash
-cargo publish
 ```
 
 ## License

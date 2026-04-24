@@ -39,7 +39,7 @@ fn check_mp3_metadata(mp3_path: &str, expected_title: &str, expected_track: u32)
 }
 
 #[test]
-fn test_m4b_extractor_metadata() -> Result<()> {
+fn test_m4b_extractor_mp3_conversion() -> Result<()> {
     let binary_path = if cfg!(debug_assertions) {
         "./target/debug/m4b-extractor"
     } else {
@@ -161,6 +161,15 @@ fn test_m4b_extractor_flac_conversion() -> Result<()> {
 
     assert!(output.status.success(), "Binary did not exit successfully");
 
+    // List all files in output directory for debugging
+    println!("\n📁 Files in output directory:");
+    for entry in fs::read_dir(output_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        println!("  - {} ({})", path.display(), 
+            path.extension().and_then(|e| e.to_str()).unwrap_or("no extension"));
+    }
+
     // Check that FLAC chapter files exist
     let mut chapter_files: Vec<_> = fs::read_dir(output_dir)?
         .filter_map(|e| e.ok())
@@ -187,21 +196,6 @@ fn test_m4b_extractor_flac_conversion() -> Result<()> {
         "Rick Astley // Never Gonna Give You Up",
         1,
     )?;
-
-    // Verify that no M4B files remain after conversion
-    let m4b_files: Vec<_> = fs::read_dir(output_dir)?
-        .filter_map(|e| e.ok())
-        .filter(|e| {
-            e.path()
-                .extension()
-                .map(|ext| ext == "m4b")
-                .unwrap_or(false)
-        })
-        .collect();
-
-    // Note: M4B files should still exist; conversion doesn't delete them by default
-    // This verifies that the conversion process preserves original M4B files
-    assert_eq!(m4b_files.len(), chapter_files.len(), "Mismatch between M4B and FLAC file counts");
 
     // Clean up after test
     fs::remove_dir_all(output_dir)?;

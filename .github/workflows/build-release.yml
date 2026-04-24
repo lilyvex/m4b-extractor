@@ -1,22 +1,20 @@
-name: Tests
+name: Build release
 
 on:
   push:
     branches: ["main"]
-  pull_request:
-    branches: ["main"]
 
 jobs:
-  test:
+  build-release:
     runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: true
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        stability: [prefer-stable]
-
     name: ${{ matrix.os }}
-
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: linux-amd64
+          - os: windows-latest
+            artifact: windows-amd64
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -52,7 +50,7 @@ jobs:
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: stable
           override: true
 
       - name: Build
@@ -60,3 +58,18 @@ jobs:
 
       - name: Run tests
         run: cargo test --verbose
+
+      - name: Rename built executable on Linux
+        if: matrix.os == 'ubuntu-latest'
+        run: cp target/release/m4b-extractor target/release/m4b-extractor-${{ matrix.artifact }}
+
+      - name: Rename built executable on Windows
+        if: matrix.os == 'windows-latest'
+        run: copy target\release\m4b-extractor.exe target\release\m4b-extractor-${{ matrix.artifact }}.exe
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: m4b-extractor-${{ matrix.os }}
+          path: target/release/m4b-extractor-${{ matrix.artifact }}*
+          archive: false
